@@ -1,6 +1,6 @@
 from ultralytics import YOLO
 
-model = YOLO("yolov5n.pt")
+model = YOLO("yolov8n.pt")
 
 TARGET_CLASSES = ["person", "chair", "table"]
 

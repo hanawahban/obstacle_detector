@@ -14,11 +14,11 @@ while True:
     frame_area = frame.shape[0] * frame.shape[1]
 
     for label, conf, x1, y1, x2, y2 in detections:
-        # Calculate bounding box
+        # bounding box
         box_area = (x2 - x1) * (y2 - y1)
         area_ratio = box_area / frame_area
 
-        # Determine proximity
+        # proximity
         if area_ratio > 0.25:
             proximity = "very close"
         elif area_ratio > 0.12:
@@ -26,12 +26,22 @@ while True:
         else:
             proximity = "far"
 
+        frame_width = frame.shape[1]
+        center_x = (x1 + x2) / 2
+
+        if center_x < frame_width / 3:
+            direction = "left"
+        elif center_x > 2 * frame_width / 3:
+            direction = "right"
+        else:
+            direction = "ahead"
+
         # Draw bounding box
         cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
 
         # Audio alert
         if proximity in ["close", "very close"]:
-            speak("Obstacle ahead")
+            speak(f"{label} {direction}")
 
     cv2.imshow("Obstacle Detector", frame)
 
