@@ -28,6 +28,7 @@ while True:
 
         frame_width = frame.shape[1]
         center_x = (x1 + x2) / 2
+        relative_x = center_x / frame_width
 
         if center_x < frame_width / 3:
             direction = "left"
@@ -36,10 +37,11 @@ while True:
         else:
             direction = "ahead"
 
-        # Draw bounding box
         cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
 
-        # Audio alert
+        is_in_forward_path = 0.3 < relative_x < 0.7
+
+        #alert
         if proximity in ["close", "very close"]:
             speak(f"{label} {direction}")
 
