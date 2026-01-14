@@ -1,9 +1,9 @@
 import cv2 as cv
 
 def start_camera():
-    webcam = cv.VideoCapture(0)
+    cam = cv.VideoCapture(1)
 
-    if not webcam.isOpened():
+    if not cam.isOpened():
         raise RuntimeError("Camera not accessible")
 
-    return webcam
+    return cam
