@@ -6,9 +6,11 @@ The system uses YOLO object detection, OpenCV, and audio alerts to identify obst
 This project is optimized for NVIDIA Jetson Orin Nano.
 
 **Features**
-- Real-time camera input (USB / IP / phone camera)
+- Real-time camera input 
   
 - Object detection using YOLO (Ultralytics)
+  
+- Depth perception using MiDaS
   
 - Detection of common obstacles (people, furniture, objects)
   
