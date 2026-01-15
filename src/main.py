@@ -1,118 +1,176 @@
+
 import cv2
+import numpy as np
+import time
 from src.camera import start_camera
 from src.yolo import detect_objects
 from src.audio_alerts import speak
+from src.depth import DepthEstimator
+
+# Performance settings
+DISPLAY_ENABLED = True  
+DEPTH_FRAME_SKIP = 3  
+TARGET_FPS = 30
+DETECTION_CONFIDENCE = 0.5
 
 cap = start_camera()
-
-print("Loading MiDaS depth estimation model...")
 depth_estimator = DepthEstimator(model_type="MiDAS_small")
-print("Model loaded successfully!")
 
-# frame dimensions 
 ret, test_frame = cap.read()
 if not ret:
     raise RuntimeError("Cannot read from camera")
 
-FRAME_HEIGHT = test_frame.shape[0]
-FRAME_WIDTH = test_frame.shape[1]
-FRAME_AREA = FRAME_HEIGHT * FRAME_WIDTH
+# Resize input for faster processing
+PROCESS_WIDTH = 640
+PROCESS_HEIGHT = 480
+FRAME_HEIGHT = PROCESS_HEIGHT
+FRAME_WIDTH = PROCESS_WIDTH
 
-# define the ground level objects
-GROUND_LEVEL_THRESHOLD = FRAME_HEIGHT * 0.5
+GROUND_LEVEL_THRESHOLD = FRAME_HEIGHT * 0.6
 
-while True:
-    ret, frame = cap.read()
-    if not ret:
-        break
+frame_count = 0
+current_depth_map = None
+fps_counter = []
 
-    detections = detect_objects(frame)
-    
-    # Track obstacles that need alerting
-    priority_obstacles = []
+print("Obstacle detection system ready!")
+print(f"Processing at {PROCESS_WIDTH}x{PROCESS_HEIGHT}")
+print(f"Display: {'Enabled' if DISPLAY_ENABLED else 'Disabled (headless)'}")
 
-    for label, conf, x1, y1, x2, y2 in detections:
-        # Calculate bounding box 
-        box_area = (x2 - x1) * (y2 - y1)
-        area_ratio = box_area / FRAME_AREA
+try:
+    while True:
+        loop_start = time.time()
         
-        # Calculate center points
-        center_x = (x1 + x2) / 2
-        center_y = (y1 + y2) / 2
-        bottom_y = y2  # Bottom of bounding box
+        ret, frame = cap.read()
+        if not ret:
+            break
         
-        # Check if object is at ground level 
-        is_ground_level = bottom_y > GROUND_LEVEL_THRESHOLD
+        frame = cv2.resize(frame, (PROCESS_WIDTH, PROCESS_HEIGHT))
         
-        # Calculate horizontal position
-        relative_x = center_x / FRAME_WIDTH
+        frame_count += 1
         
-        # Determine if object is in forward path (center 40% of frame)
-        is_in_forward_path = 0.3 < relative_x < 0.7
+        # Update depth map 
+        if frame_count % DEPTH_FRAME_SKIP == 0:
+            depth_start = time.time()
+            current_depth_map, current_depth_normalized = depth_estimator.estimate_depth(frame)
+            depth_time = time.time() - depth_start
         
-        # Determine direction
-        if center_x < FRAME_WIDTH / 3:
-            direction = "on your left"
-        elif center_x > 2 * FRAME_WIDTH / 3:
-            direction = "on your right"
-        else:
-            direction = "ahead"
+        # Detect objects
+        detect_start = time.time()
+        detections = detect_objects(frame)
+        detect_time = time.time() - detect_start
         
-        # Determine proximity based on area ratio
-        if area_ratio > 0.25:
-            proximity = "very close"
-            distance_priority = 3
-        elif area_ratio > 0.12:
-            proximity = "close"
-            distance_priority = 2
-        elif area_ratio > 0.05:
-            proximity = "approaching"
-            distance_priority = 1
-        else:
-            proximity = None
-            distance_priority = 0
-        
-        # Draw bounding box 
-        box_color = (0, 255, 0) if is_ground_level else (0, 255, 255)
-        cv2.rectangle(frame, (x1, y1), (x2, y2), box_color, 2)
-        
-        # Add label
-        label_text = f"{label} {proximity if proximity else 'far'}"
-        cv2.putText(frame, label_text, (x1, y1 - 10),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, box_color, 2)
-        
-        if is_ground_level and proximity in ["close", "very close", "approaching"]:
-            # Prioritize objects in forward path
+        priority_obstacles = []
+
+        for label, conf, x1, y1, x2, y2 in detections:
+            if conf < DETECTION_CONFIDENCE:
+                continue
+            
+            center_x = (x1 + x2) / 2
+            bottom_y = y2
+            
+            is_ground_level = bottom_y > GROUND_LEVEL_THRESHOLD
+            
+            # Get depth info
+            if current_depth_map is not None and is_ground_level:
+                obj_depth, depth_category = depth_estimator.get_object_depth(
+                    current_depth_map, x1, y1, x2, y2
+                )
+            else:
+                continue  
+            
+            # Calculate position
+            relative_x = center_x / FRAME_WIDTH
+            is_in_forward_path = 0.3 < relative_x < 0.7
+            
+            # Determine direction
+            if center_x < FRAME_WIDTH / 3:
+                direction = "on your left"
+            elif center_x > 2 * FRAME_WIDTH / 3:
+                direction = "on your right"
+            else:
+                direction = "ahead"
+            
+            if depth_category == "very_close":
+                proximity = "very close"
+                distance_priority = 4
+            elif depth_category == "close":
+                proximity = "close"
+                distance_priority = 3
+            elif depth_category == "medium":
+                proximity = "approaching"
+                distance_priority = 2
+            else:
+                continue  # Ignore far objects
+            
             path_priority = 2 if is_in_forward_path else 1
             
-            obstacle_info = {
-                'label': label,
-                'direction': direction,
-                'proximity': proximity,
-                'priority': distance_priority * path_priority,
-                'area_ratio': area_ratio
-            }
-            priority_obstacles.append(obstacle_info)
-    
-    # Alert for the highest priority obstacle only
-    if priority_obstacles:
-        # Sort by priority (highest first)
-        priority_obstacles.sort(key=lambda x: x['priority'], reverse=True)
-        top_obstacle = priority_obstacles[0]
+            # Only alert on significant threats
+            if depth_category in ["very_close", "close", "medium"]:
+                obstacle_info = {
+                    'label': label,
+                    'direction': direction,
+                    'proximity': proximity,
+                    'priority': distance_priority * path_priority,
+                    'in_path': is_in_forward_path
+                }
+                priority_obstacles.append(obstacle_info)
+            
+            # Draw on frame if display enabled
+            if DISPLAY_ENABLED:
+                if depth_category == "very_close":
+                    color = (0, 0, 255)  
+                elif depth_category == "close":
+                    color = (0, 165, 255)  
+                else:
+                    color = (0, 255, 255)  
+                
+                cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
+                cv2.putText(frame, f"{label}: {proximity}", (x1, y1-10),
+                           cv2.FONT_HERSHEY_SIMPLEX, 0.4, color, 1)
         
-        #alert message
-        if top_obstacle['proximity'] == "very close":
-            alert = f"Warning! {top_obstacle['label']} very close {top_obstacle['direction']}"
+        # Alert for highest priority obstacle only
+        if priority_obstacles:
+            priority_obstacles.sort(key=lambda x: x['priority'], reverse=True)
+            top = priority_obstacles[0]
+            
+            if top['proximity'] == "very close":
+                alert = f"Warning! {top['label']} very close {top['direction']}"
+            else:
+                alert = f"{top['label']} {top['direction']}"
+            
+            speak(alert)
+        
+        if DISPLAY_ENABLED:
+            loop_time = time.time() - loop_start
+            current_fps = 1.0 / loop_time if loop_time > 0 else 0
+            fps_counter.append(current_fps)
+            if len(fps_counter) > 30:
+                fps_counter.pop(0)
+            avg_fps = np.mean(fps_counter)
+            
+            cv2.putText(frame, f"FPS: {avg_fps:.1f}", (10, 30),
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+            
+            if current_depth_normalized is not None:
+                depth_colored = depth_estimator.visualize_depth(current_depth_normalized)
+                combined = np.hstack((frame, depth_colored))
+                cv2.imshow("Obstacle Detector", combined)
+            else:
+                cv2.imshow("Obstacle Detector", frame)
+            
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                break
         else:
-            alert = f"{top_obstacle['label']} {top_obstacle['direction']}"
-        
-        speak(alert)
-    
-    # Visual feedback
-    cv2.imshow("Obstacle Detector", frame)
+            loop_time = time.time() - loop_start
+            target_time = 1.0 / TARGET_FPS
+            if loop_time < target_time:
+                time.sleep(target_time - loop_time)
 
-    if cv2.waitKey(1) & 0xFF == ord('q'):
-        break
+except KeyboardInterrupt:
+    print("\nShutting down...")
 
-cap.release()
-cv2.destroyAllWindows()
+finally:
+    cap.release()
+    if DISPLAY_ENABLED:
+        cv2.destroyAllWindows()
+    print("Obstacle detection system stopped.")

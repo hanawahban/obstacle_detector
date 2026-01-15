@@ -67,7 +67,6 @@ try:
                     cv2.putText(frame_display, depth_text, (click_x + 10, click_y - 10),
                               cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
             
-            # Add statistics
             if current_depth_map is not None:
                 depth_min = np.min(current_depth_map)
                 depth_max = np.max(current_depth_map)
@@ -90,11 +89,9 @@ try:
             cv2.putText(depth_display, "Click to measure depth", (10, 30),
                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
             
-            # Combine views
             combined = np.hstack((frame_display, depth_display))
             cv2.imshow("Depth Test", combined)
         
-        # Handle keyboard input
         key = cv2.waitKey(1) & 0xFF
         
         if key == ord('q'):
@@ -109,7 +106,6 @@ try:
             paused = not paused
             print("Paused" if paused else "Resumed")
         elif key == ord('c'):
-            # Clear click point
             click_x, click_y = -1, -1
 
 except KeyboardInterrupt:
