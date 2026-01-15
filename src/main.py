@@ -5,6 +5,10 @@ from src.audio_alerts import speak
 
 cap = start_camera()
 
+print("Loading MiDaS depth estimation model...")
+depth_estimator = DepthEstimator(model_type="MiDAS_small")
+print("Model loaded successfully!")
+
 # frame dimensions 
 ret, test_frame = cap.read()
 if not ret:
