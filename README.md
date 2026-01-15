@@ -10,7 +10,7 @@ This project is optimized for NVIDIA Jetson Orin Nano.
   
 - Object detection using YOLO (Ultralytics)
   
-- Depth perception using MiDaS
+- Depth perception using MiDaS Pytorch
   
 - Detection of common obstacles (people, furniture, objects)
   
