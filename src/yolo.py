@@ -4,26 +4,19 @@ model = YOLO("yolov8n.pt")
 
 # Expanded list of potential obstacles for visually impaired navigation
 TARGET_CLASSES = [
-    # People and animals
     "person", "dog", "cat", "bicycle", "motorcycle",
     
-    # Furniture
     "chair", "couch", "bench", 
     
-    # Large objects
     "car", "truck", "bus",
     
-    # indoor obstacles
     "suitcase", "backpack", "handbag",
     
-    # Outdoor obstacles
     "fire hydrant", "parking meter", "stop sign",
     
-    # Other potential obstacles
     "potted plant", "umbrella"
 ]
 
-# Objects that are typically elevated and less likely to be obstacles
 ELEVATED_OBJECTS = ["table", "desk", "tv", "laptop", "keyboard"]
 
 def detect_objects(frame):
