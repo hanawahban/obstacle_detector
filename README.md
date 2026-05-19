@@ -1,4 +1,4 @@
-**Obstacle Detection System**
+## Obstacle Detection System 
 
 An AI-powered real-time obstacle detection system designed for assistive applications.
 The system uses YOLO object detection, OpenCV, and audio alerts to identify obstacles in front of the user and provide real-time feedback.
