@@ -31,16 +31,18 @@ This project is optimized for NVIDIA Jetson Orin Nano.
   
 - Text-to-Speech (audio alerts)
   
-- NVIDIA JetPack
+- NVIDIA Jetson Orin Nano
 
-**Installation**
+**How to Run**
 1. Clone the repository
    
 3. Create and activate virtual environment
    
 5. Install dependencies
+   pip install -r requirements.txt
    
 7. Run the program
+   python main.py
 
 **How it works**
 
@@ -53,3 +55,5 @@ This project is optimized for NVIDIA Jetson Orin Nano.
 4. Audio alerts trigger when obstacles are close
 
 5. Visual feedback is displayed on screen
+
+**Demo**
