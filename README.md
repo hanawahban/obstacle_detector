@@ -59,5 +59,3 @@ This project is optimized for NVIDIA Jetson Orin Nano.
 4. Audio alerts trigger when obstacles are close
 
 5. Visual feedback is displayed on screen
-
-**Demo**
