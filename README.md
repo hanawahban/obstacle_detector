@@ -39,10 +39,14 @@ This project is optimized for NVIDIA Jetson Orin Nano.
 3. Create and activate virtual environment
    
 5. Install dependencies
+   ```
    pip install -r requirements.txt
+   ```
    
 7. Run the program
+   ```
    python main.py
+   ```
 
 **How it works**
 
